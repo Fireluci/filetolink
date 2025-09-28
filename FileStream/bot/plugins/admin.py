@@ -40,11 +40,11 @@ async def sts(b, m: Message):
         try:
             await db.ban_user(int(id))
             await db.delete_user(int(id))
-            await m.reply_text(text=f"`{id}`** is Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+            await m.reply_text(text=f"`{id}`** is Banned!** ", parse_mode=ParseMode.MARKDOWN, quote=True)
             if not str(id).startswith('-100'):
                 await b.send_message(
                     chat_id=id,
-                    text="**Your Banned to Use The Bot**",
+                    text="**❗️You're Banned!**",
                     parse_mode=ParseMode.MARKDOWN,
                     disable_web_page_preview=True
                 )
@@ -72,7 +72,7 @@ async def sts(b, m: Message):
             if not str(id).startswith('-100'):
                 await b.send_message(
                     chat_id=id,
-                    text="**Your Unbanned now Use can use The Bot**",
+                    text="**You Can Use Me Now ✅**",
                     parse_mode=ParseMode.MARKDOWN,
                     disable_web_page_preview=True
                 )

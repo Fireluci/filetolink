@@ -17,7 +17,7 @@ async def private_receive_handler(bot: Client, message: Message):
     if Telegram.FORCE_SUB:
         if not await is_user_joined(bot, message):
             return
-    up=await message.reply_text("<b>Generating Streaming Link ⚡</b>")
+    up=await message.reply_text("<b>♻️ Processing!</b>")
     try:
         inserted_id = await db.add_file(get_file_info(message))
         await get_file_ids(False, inserted_id, multi_clients, message)

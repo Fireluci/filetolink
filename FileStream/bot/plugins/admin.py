@@ -33,45 +33,64 @@ async def sts(c: Client, m: Message):
 #                        , parse_mode=ParseMode.MARKDOWN, quote=True)
 
 
-#@FileStream.on_message(filters.command("ban") & filters.private & filters.user(Telegram.OWNER_ID))
-#async def sts(b, m: Message):
-#    id = m.text.split("/ban ")[-1]
-#    if not await db.is_user_banned(int(id)):
-#        try:
-#            await db.ban_user(int(id))
-#            await db.delete_user(int(id))
-#            await m.reply_text(text=f"`{id}`** is Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
-#            if not str(id).startswith('-100'):
-#                await b.send_message(
-#                    chat_id=id,
-#                    text="**Your Banned to Use The Bot**",
-#                    parse_mode=ParseMode.MARKDOWN,
-#                    disable_web_page_preview=True
-#                )
-#        except Exception as e:
-#            await m.reply_text(text=f"**something went wrong: {e}** ", parse_mode=ParseMode.MARKDOWN, quote=True)
-#    else:
-#        await m.reply_text(text=f"`{id}`** is Already Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+@FileStream.on_message(filters.command("ban") & filters.private & filters.user(Telegram.OWNER_ID))
+async def sts(b, m: Message):
+    id = m.text.split("/ban ")[-1]
+    if not await db.is_user_banned(int(id)):
+        try:
+            await db.ban_user(int(id))
+            await db.delete_user(int(id))
+            await m.reply_text(text=f"`{id}`** is Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+            if not str(id).startswith('-100'):
+                await b.send_message(
+                    chat_id=id,
+                    text="**Your Banned to Use The Bot**",
+                    parse_mode=ParseMode.MARKDOWN,
+                    disable_web_page_preview=True
+                )
+        except Exception as e:
+           await m.reply_text(text=f"**something went wrong: {e}** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+    else:
+        await m.reply_text(text=f"`{id}`** is Already Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
 
 
-#@FileStream.on_message(filters.command("unban") & filters.private & filters.user(Telegram.OWNER_ID))
-#async def sts(b, m: Message):
-#    id = m.text.split("/unban ")[-1]
-#    if await db.is_user_banned(int(id)):
-#        try:
-#            await db.unban_user(int(id))
-#            await m.reply_text(text=f"`{id}`** is Unbanned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
-#            if not str(id).startswith('-100'):
-#                await b.send_message(
-#                    chat_id=id,
-#                    text="**Your Unbanned now Use can use The Bot**",
-#                    parse_mode=ParseMode.MARKDOWN,
-#                    disable_web_page_preview=True
-#                )
-#        except Exception as e:
-#            await m.reply_text(text=f"** something went wrong: {e}**", parse_mode=ParseMode.MARKDOWN, quote=True)
-#    else:
-#        await m.reply_text(text=f"`{id}`** is not Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+
+FileStream.on_message(filters.command("unban") & filters.private & filters.user(Telegram.OWNER_ID))
+
+async def sts(b, m: Message):
+    id = m.text.split("/unban ")[-1]
+
+    if await db.is_user_banned(int(id)):
+        try:
+            await db.unban_user(int(id))
+            await m.reply_text(
+                text=f"`{id}`** is Unbanned** ",
+                parse_mode=ParseMode.MARKDOWN,
+                quote=True
+            )
+
+            if not str(id).startswith('-100'):
+                await b.send_message(
+                    chat_id=id,
+                    text="**Your Unbanned now Use can use The Bot**",
+                    parse_mode=ParseMode.MARKDOWN,
+                    disable_web_page_preview=True
+                )
+
+        except Exception as e:
+            await m.reply_text(
+                text=f"** something went wrong: {e}**",
+                parse_mode=ParseMode.MARKDOWN,
+                quote=True
+            )
+
+    else:
+        await m.reply_text(
+            text=f"`{id}`** is not Banned** ",
+            parse_mode=ParseMode.MARKDOWN,
+            quote=True
+        )
+
 
 
 @FileStream.on_message(filters.command("broadcast") & filters.private & filters.user(Telegram.OWNER_ID) & filters.reply)

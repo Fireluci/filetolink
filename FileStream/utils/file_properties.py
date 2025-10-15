@@ -137,7 +137,7 @@ async def send_file(client: Client, db_id, file_id: str, message):
             text=(
                 f"**👤 Requested By:- ** [{message.from_user.first_name}](tg://user?id={message.from_user.id})\n"
                 f"**🗳 User ID:- ** `{message.from_user.id}`\n"
-                f"#{message.from_user.id}"
+                f"#id{message.from_user.id}"
             ),
             disable_web_page_preview=True,
             parse_mode=ParseMode.MARKDOWN,

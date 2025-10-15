@@ -121,24 +121,38 @@ async def update_file_id(msg_id, multi_clients):
         log_msg = await client.get_messages(Telegram.FLOG_CHANNEL, msg_id)
         media = get_media_from_message(log_msg)
         file_ids[str(client.id)] = getattr(media, "file_id", "")
-
     return file_ids
 
 
 async def send_file(client: Client, db_id, file_id: str, message):
     file_caption = getattr(message, 'caption', None) or get_name(message)
-    log_msg = await client.send_cached_media(chat_id=Telegram.FLOG_CHANNEL, file_id=file_id,
-                                             caption=f'**{file_caption}**')
+    log_msg = await client.send_cached_media(
+        chat_id=Telegram.FLOG_CHANNEL,
+        file_id=file_id,
+        caption=f'**{file_caption}**'
+    )
 
     if message.chat.type == ChatType.PRIVATE:
         await log_msg.reply_text(
-            text=f"**👤 Requested By:- ** [{message.from_user.first_name}](tg://user?id={message.from_user.id})\n**🗳 User ID:- ** `{message.from_user.id}`",
-            disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN, quote=True)
+            text=(
+                f"**👤 Requested By:- ** [{message.from_user.first_name}](tg://user?id={message.from_user.id})\n"
+                f"**🗳 User ID:- ** `{message.from_user.id}`\n"
+                f"#{message.from_user.id}"
+            ),
+            disable_web_page_preview=True,
+            parse_mode=ParseMode.MARKDOWN,
+            quote=True
+        )
     else:
         await log_msg.reply_text(
-            text=f"**👤 Requested By:- ** {message.chat.title} \n**🗳 Channel ID:- ** `{message.chat.id}`\n**📒 File ID:- ** `{db_id}`",
-            disable_web_page_preview=True, parse_mode=ParseMode.MARKDOWN, quote=True)
+            text=(
+                f"**👤 Requested By:- ** {message.chat.title}\n"
+                f"**🗳 Channel ID:- ** `{message.chat.id}`\n"
+                f"**📒 File ID:- ** `{db_id}`"
+            ),
+            disable_web_page_preview=True,
+            parse_mode=ParseMode.MARKDOWN,
+            quote=True
+        )
 
     return log_msg
-    # return await client.send_cached_media(Telegram.BIN_CHANNEL, file_id)
-

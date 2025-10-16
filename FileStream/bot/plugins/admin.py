@@ -1,4 +1,4 @@
-import os
+import os 
 import time
 import string
 import random
@@ -23,14 +23,8 @@ broadcast_ids = {}
 async def sts(c: Client, m: Message):
     await m.reply_text(text=f"""**Total Users in DB:** `{await db.total_users_count()}`
 **Banned Users in DB:** `{await db.total_banned_users_count()}`
-**Total Links Generated: ** `{await db.total_files()}`"""
+**Total Links Generated:** `{await db.total_files()}`"""
                        , parse_mode=ParseMode.MARKDOWN, quote=True)
-
-# @FileStream.on_message(filters.command("bots") & filters.private)
-# async def our_bots(c: Client, m: Message):
-#     await m.reply_text(text=f"""**Our Other Bots\n\nBot 1: @VegaMoviesiBot\nBot 2: @VegaMoviesXBot \nBot 3: @File2LinkiBot
-#     **"""
-#                        , parse_mode=ParseMode.MARKDOWN, quote=True)
 
 
 @FileStream.on_message(filters.command("ban") & filters.private & filters.user(Telegram.OWNER_ID))
@@ -40,7 +34,7 @@ async def sts(b, m: Message):
         try:
             await db.ban_user(int(id))
             await db.delete_user(int(id))
-            await m.reply_text(text=f"`{id}`** is Banned!** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+            await m.reply_text(text=f"`{id}` **is Banned!** ", parse_mode=ParseMode.MARKDOWN, quote=True)
             if not str(id).startswith('-100'):
                 await b.send_message(
                     chat_id=id,
@@ -51,12 +45,11 @@ async def sts(b, m: Message):
         except Exception as e:
            await m.reply_text(text=f"**something went wrong: {e}** ", parse_mode=ParseMode.MARKDOWN, quote=True)
     else:
-        await m.reply_text(text=f"`{id}`** is Already Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
+        await m.reply_text(text=f"`{id}` **is Already Banned** ", parse_mode=ParseMode.MARKDOWN, quote=True)
 
 
 
-FileStream.on_message(filters.command("unban") & filters.private & filters.user(Telegram.OWNER_ID))
-
+@FileStream.on_message(filters.command("unban") & filters.private & filters.user(Telegram.OWNER_ID))
 async def sts(b, m: Message):
     id = m.text.split("/unban ")[-1]
 
@@ -64,7 +57,7 @@ async def sts(b, m: Message):
         try:
             await db.unban_user(int(id))
             await m.reply_text(
-                text=f"`{id}`** is Unbanned** ",
+                text=f"`{id}` **is Unbanned** ",
                 parse_mode=ParseMode.MARKDOWN,
                 quote=True
             )
@@ -79,14 +72,14 @@ async def sts(b, m: Message):
 
         except Exception as e:
             await m.reply_text(
-                text=f"** something went wrong: {e}**",
+                text=f"**something went wrong: {e}**",
                 parse_mode=ParseMode.MARKDOWN,
                 quote=True
             )
 
     else:
         await m.reply_text(
-            text=f"`{id}`** is not Banned** ",
+            text=f"`{id}` **is not Banned** ",
             parse_mode=ParseMode.MARKDOWN,
             quote=True
         )
@@ -141,7 +134,7 @@ async def broadcast_(c, m):
                     )
                 )
                 try:
-                    await out.edit_text(f"Broadcast Status\n\ncurrent: {done}\nfailed:{failed}\nsuccess: {success}")
+                    await out.edit_text(f"Broadcast Status\n\ncurrent: {done}\nfailed: {failed}\nsuccess: {success}")
                 except:
                     pass
     if broadcast_ids.get(broadcast_id):
@@ -182,4 +175,17 @@ async def sts(c: Client, m: Message):
     )
 
 
-
+# --- 🔒 Global Ban Check (for all messages) ---
+@FileStream.on_message(filters.private)
+async def global_ban_check(c: Client, m: Message):
+    try:
+        if await db.is_user_banned(m.from_user.id):
+            await m.reply_text(
+                "You are banned. Please contact the admin.",
+                parse_mode=ParseMode.MARKDOWN,
+                quote=True
+            )
+            return
+    except Exception as e:
+        print(f"Ban check error: {e}")
+        return

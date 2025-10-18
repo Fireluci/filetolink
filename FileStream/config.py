@@ -1,12 +1,15 @@
 from os import environ as env
 from dotenv import load_dotenv
+from pymongo import MongoClient
+
 load_dotenv()
+
 class Telegram:
     API_ID = int(env.get("API_ID","1736204"))
     API_HASH = str(env.get("API_HASH","890d40e0f91a4de32dec2965444b2cbe"))
     BOT_TOKEN = str(env.get("BOT_TOKEN",""))
     OWNER_ID = int(env.get('OWNER_ID', '1058015838'))
-    WORKERS = int(env.get("WORKERS", "6"))  # 6 workers = 6 commands at once
+    WORKERS = int(env.get("WORKERS", "6"))  
     DATABASE_URL = str(env.get('DATABASE_URL',"mongodb+srv://filetolink:filetolink@filetolink.vaepsfk.mongodb.net/?retryWrites=true&w=majority&appName=filetolink"))
     UPDATES_CHANNEL = str(env.get('UPDATES_CHANNEL', "+NSpRIGWcoYU2OTk1"))
     SESSION_NAME = str(env.get('SESSION_NAME', 'FileStream'))
@@ -18,11 +21,12 @@ class Telegram:
     START_PIC = env.get('START_PIC', "https://te.legra.ph/file/d6a23f16e002e86381656.jpg")
     VERIFY_PIC = env.get('VERIFY_PIC', "https://te.legra.ph/file/d6a23f16e002e86381656.jpg")
     MULTI_CLIENT = False
-    FLOG_CHANNEL = int(env.get("FLOG_CHANNEL", "-1002641789452"))   # Logs channel for file logs
-    ULOG_CHANNEL = int(env.get("ULOG_CHANNEL", "-1002641789452"))   # Logs channel for user logs
+    FLOG_CHANNEL = int(env.get("FLOG_CHANNEL", "-1002641789452"))   
+    ULOG_CHANNEL = int(env.get("ULOG_CHANNEL", "-1002641789452"))   
     MODE = env.get("MODE", "primary")
     SECONDARY = True if MODE.lower() == "secondary" else False
     AUTH_USERS = list(set(int(x) for x in str(env.get("AUTH_USERS", "")).split()))
+
 class Server:
     PORT = int(env.get("PORT", 8080))
     BIND_ADDRESS = str(env.get("BIND_ADDRESS", "0.0.0.0"))
@@ -33,14 +37,12 @@ class Server:
     URL = "http{}://{}{}/".format(
         "s" if HAS_SSL else "", FQDN, "" if NO_PORT else ":" + str(PORT)
     )
-# ------------------- MongoDB Banned Users -------------------
-from pymongo import MongoClient
 
-# MongoDB connection using existing DATABASE_URL
+# ------------------- MongoDB Banned Users -------------------
 client_db = MongoClient(Telegram.DATABASE_URL)
 db = client_db["filetolink"]
 banned_users_col = db["banned_users"]
 
-def is_user_banned(user_id: int) -> bool:
+async def is_user_banned(user_id: int) -> bool:
     """Check if the user is banned in MongoDB."""
     return banned_users_col.find_one({"user_id": user_id}) is not None

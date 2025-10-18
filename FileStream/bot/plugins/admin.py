@@ -92,4 +92,4 @@ async def unban_user(c: Client, m: Message):
                     disable_web_page_preview=True
                 )
         except Exception as e:
-            await m.reply_text(f"**Something went wrong: {e}**", parse_mode=ParseMode.MARKDOWN, quote
+            await m.reply_text(f"**Something went wrong: {e}**", parse_mode=ParseMode.MARKDOWN, quote=True)

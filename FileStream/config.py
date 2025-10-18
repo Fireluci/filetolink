@@ -33,3 +33,14 @@ class Server:
     URL = "http{}://{}{}/".format(
         "s" if HAS_SSL else "", FQDN, "" if NO_PORT else ":" + str(PORT)
     )
+# ------------------- MongoDB Banned Users -------------------
+from pymongo import MongoClient
+
+# MongoDB connection using existing DATABASE_URL
+client_db = MongoClient(Telegram.DATABASE_URL)
+db = client_db["filetolink"]
+banned_users_col = db["banned_users"]
+
+def is_user_banned(user_id: int) -> bool:
+    """Check if the user is banned in MongoDB."""
+    return banned_users_col.find_one({"user_id": user_id}) is not None

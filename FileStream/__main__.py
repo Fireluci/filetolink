@@ -6,8 +6,9 @@ import logging.handlers as handlers
 from FileStream.config import Telegram, Server
 from aiohttp import web
 from pyrogram import idle
+import aiohttp
 
-# ✅ Correct imports (right files)
+# ✅ Correct imports
 from FileStream.bot import FileStream
 from FileStream.bot.clients import initialize_clients
 from FileStream.server import web_server
@@ -33,6 +34,20 @@ server = web.AppRunner(web_server())
 loop = asyncio.get_event_loop()
 
 # ================================
+# Keep-Alive Background Task
+# ================================
+async def keep_alive():
+    """Continuously pings the app URL to prevent Koyeb idle shutdown."""
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                await session.get(f"http://{Server.BIND_ADDRESS}:{Server.PORT}")
+            logging.info("🌀 Keep-Alive ping sent successfully.")
+        except Exception as e:
+            logging.warning(f"⚠️ Keep-Alive ping failed: {e}")
+        await asyncio.sleep(60)  # ping every 60 seconds
+
+# ================================
 # Start Bot + Web Server
 # ================================
 async def start_services():
@@ -40,22 +55,23 @@ async def start_services():
     print("------------------- Starting as Primary Server -------------------")
     print()
 
-    # Initialize multi-clients (if any)
     await initialize_clients()
 
-    # ✅ Start the real bot client
+    # ✅ Start the FileStream Bot
     await FileStream.start()
     logging.info("✅ FileStream bot started successfully!")
 
-    # ✅ Start web server
+    # ✅ Start the AIOHTTP Web Server
     await server.setup()
     site = web.TCPSite(server, host=Server.BIND_ADDRESS, port=Server.PORT)
     await site.start()
     logging.info(f"🌐 Web server started at http://{Server.BIND_ADDRESS}:{Server.PORT}")
 
+    # ✅ Launch Keep-Alive Task
+    asyncio.create_task(keep_alive())
+
     logging.info("🟢 Waiting for incoming bot updates...")
     await idle()
-
     await FileStream.stop()
 
 # ================================

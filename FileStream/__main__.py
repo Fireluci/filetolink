@@ -7,7 +7,7 @@ from FileStream.config import Telegram, Server
 from aiohttp import web
 from pyrogram import idle
 
-# ✅ Correct imports
+# ✅ Correct imports (right files)
 from FileStream.bot import FileStream
 from FileStream.bot.clients import initialize_clients
 from FileStream.server import web_server
@@ -40,14 +40,14 @@ async def start_services():
     print("------------------- Starting as Primary Server -------------------")
     print()
 
-    # ✅ Initialize multiple Telegram clients (if configured)
+    # Initialize multi-clients (if any)
     await initialize_clients()
 
-    # ✅ Start FileStream Bot Client
+    # ✅ Start the real bot client
     await FileStream.start()
     logging.info("✅ FileStream bot started successfully!")
 
-    # ✅ Start AIOHTTP Web Server
+    # ✅ Start web server
     await server.setup()
     site = web.TCPSite(server, host=Server.BIND_ADDRESS, port=Server.PORT)
     await site.start()

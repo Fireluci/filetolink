@@ -7,8 +7,9 @@ from FileStream.config import Telegram, Server
 from aiohttp import web
 from pyrogram import idle
 
-# Import the existing client from bot/__init__.py
-from FileStream.bot import FileStream, initialize_clients
+# ✅ Correct imports
+from FileStream.bot import FileStream
+from FileStream.bot.clients import initialize_clients
 from FileStream.server import web_server
 
 # ================================
@@ -39,22 +40,27 @@ async def start_services():
     print("------------------- Starting as Primary Server -------------------")
     print()
 
+    # ✅ Initialize multiple Telegram clients (if configured)
     await initialize_clients()
 
-    # ✅ Start FileStream (the real bot client)
+    # ✅ Start FileStream Bot Client
     await FileStream.start()
     logging.info("✅ FileStream bot started successfully!")
 
-    # ✅ Start the AIOHTTP web server
+    # ✅ Start AIOHTTP Web Server
     await server.setup()
     site = web.TCPSite(server, host=Server.BIND_ADDRESS, port=Server.PORT)
     await site.start()
     logging.info(f"🌐 Web server started at http://{Server.BIND_ADDRESS}:{Server.PORT}")
 
-    # ✅ Keep running both
+    logging.info("🟢 Waiting for incoming bot updates...")
     await idle()
+
     await FileStream.stop()
 
+# ================================
+# Entry Point
+# ================================
 if __name__ == "__main__":
     try:
         loop.run_until_complete(start_services())

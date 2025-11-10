@@ -5,11 +5,11 @@ import traceback
 import logging.handlers as handlers
 from FileStream.config import Telegram, Server
 from aiohttp import web
-from pyrogram import idle, Client
+from pyrogram import idle
 
-from FileStream.bot import FileStream
+# Import the existing client from bot/__init__.py
+from FileStream.bot import FileStream, initialize_clients
 from FileStream.server import web_server
-from FileStream.bot.clients import initialize_clients
 
 # ================================
 # Logging Setup
@@ -25,60 +25,41 @@ logging.basicConfig(
 )
 
 logging.getLogger("aiohttp").setLevel(logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.ERROR)
 logging.getLogger("aiohttp.web").setLevel(logging.ERROR)
+logging.getLogger("pyrogram").setLevel(logging.INFO)
 
-# ================================
-# AIOHTTP Web Server
-# ================================
 server = web.AppRunner(web_server())
-
 loop = asyncio.get_event_loop()
 
 # ================================
-# Start Both Bot + Web Server
+# Start Bot + Web Server
 # ================================
 async def start_services():
     print()
-    if Telegram.SECONDARY:
-        print("------------------ Starting as Secondary Server ------------------")
-    else:
-        print("------------------- Starting as Primary Server -------------------")
+    print("------------------- Starting as Primary Server -------------------")
     print()
 
-    # Initialize Pyrogram clients
     await initialize_clients()
 
-    # Start FileStream Bot
-    app = Client(
-        "FileToLink",
-        api_id=Telegram.API_ID,
-        api_hash=Telegram.API_HASH,
-        bot_token=Telegram.BOT_TOKEN,
-        plugins=dict(root="FileStream/bot/plugins")  # <-- ensures all /start, /ban, /status commands load
-    )
+    # ✅ Start FileStream (the real bot client)
+    await FileStream.start()
+    logging.info("✅ FileStream bot started successfully!")
 
-    await app.start()
-    logging.info("✅ Bot client started successfully!")
-
-    # Start web server
+    # ✅ Start the AIOHTTP web server
     await server.setup()
     site = web.TCPSite(server, host=Server.BIND_ADDRESS, port=Server.PORT)
     await site.start()
     logging.info(f"🌐 Web server started at http://{Server.BIND_ADDRESS}:{Server.PORT}")
 
-    # Keep running
+    # ✅ Keep running both
     await idle()
-    await app.stop()
+    await FileStream.stop()
 
-# ================================
-# Entry Point
-# ================================
 if __name__ == "__main__":
     try:
         loop.run_until_complete(start_services())
     except KeyboardInterrupt:
-        logging.warning("🛑 Stopped by user.")
+        logging.warning("🛑 Stopped manually.")
     except Exception as e:
         logging.error(f"❌ Startup failed: {e}")
         traceback.print_exc()

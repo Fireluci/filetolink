@@ -1,136 +1,98 @@
-import time
-import math
 import logging
-import mimetypes
-import traceback
+import asyncio
 from aiohttp import web
-from aiohttp.http_exceptions import BadStatusLine
-from FileStream.bot import multi_clients, work_loads, FileStream
-from FileStream.config import Telegram, Server
-from FileStream.server.exceptions import FIleNotFound, InvalidHash
-from FileStream import utils, StartTime, __version__
-from FileStream.utils.render_template import render_page
+from FileStream.utils.custom_dl import ByteStreamer
+from FileStream.bot import multi_clients
+
+logger = logging.getLogger(__name__)
+
+# ======================================================
+# Helper function to handle safe streaming (no crash)
+# ======================================================
+
+async def safe_stream_response(response, generator):
+    """
+    Handles client disconnects and socket errors gracefully.
+    Prevents 'socket.send() raised exception' spam.
+    """
+    try:
+        async for chunk in generator:
+            await response.write(chunk)
+    except (ConnectionResetError, OSError, asyncio.CancelledError) as e:
+        logger.warning(f"⚠️ Client disconnected or socket error: {e}")
+    finally:
+        try:
+            await response.write_eof()
+        except Exception:
+            pass
+
+# ======================================================
+# Main streaming route
+# ======================================================
 
 routes = web.RouteTableDef()
 
-@routes.get("/status", allow_head=True)
-async def root_route_handler(_):
-    return web.json_response(
-        {
-            "server_status": "running",
-            "uptime": utils.get_readable_time(time.time() - StartTime),
-            "telegram_bot": "@" + FileStream.username,
-            "connected_bots": len(multi_clients),
-            "loads": dict(
-                ("bot" + str(c + 1), l)
-                for c, (_, l) in enumerate(
-                    sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
-                )
-            ),
-            "version": __version__,
-        }
-    )
-
-@routes.get("/watch/{path}", allow_head=True)
+@routes.get("/stream/{message_id}")
 async def stream_handler(request: web.Request):
+    """
+    Streams Telegram files through HTTP with retry-safe handling.
+    """
     try:
-        path = request.match_info["path"]
-        return web.Response(text=await render_page(path), content_type='text/html')
-    except InvalidHash as e:
-        raise web.HTTPForbidden(text=e.message)
-    except FIleNotFound as e:
-        raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
+        message_id = int(request.match_info["message_id"])
+        offset = int(request.query.get("offset", 0))
+        limit = 1024 * 1024  # 1MB per chunk
 
+        # Select a client from multi_clients (first one if only one)
+        client = next(iter(multi_clients.values()))
+        streamer = ByteStreamer(client)
 
-@routes.get("/dl/{path}", allow_head=True)
-async def stream_handler(request: web.Request):
-    try:
-        path = request.match_info["path"]
-        return await media_streamer(request, path)
-    except InvalidHash as e:
-        raise web.HTTPForbidden(text=e.message)
-    except FIleNotFound as e:
-        raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
-    except Exception as e:
-        traceback.print_exc()
-        logging.critical(e.with_traceback(None))
-        logging.debug(traceback.format_exc())
-        raise web.HTTPInternalServerError(text=str(e))
+        # Fetch message by ID
+        message = await client.get_messages("me", message_id)
+        if not message or not (message.document or message.video):
+            return web.Response(text="Invalid or missing file.", status=400)
 
-class_cache = {}
-
-async def media_streamer(request: web.Request, db_id: str):
-    range_header = request.headers.get("Range", 0)
-    
-    index = min(work_loads, key=work_loads.get)
-    faster_client = multi_clients[index]
-    
-    if Telegram.MULTI_CLIENT:
-        logging.info(f"Client {index} is now serving {request.headers.get('X-FORWARDED-FOR',request.remote)}")
-
-    if faster_client in class_cache:
-        tg_connect = class_cache[faster_client]
-        logging.debug(f"Using cached ByteStreamer object for client {index}")
-    else:
-        logging.debug(f"Creating new ByteStreamer object for client {index}")
-        tg_connect = utils.ByteStreamer(faster_client)
-        class_cache[faster_client] = tg_connect
-    logging.debug("before calling get_file_properties")
-    file_id = await tg_connect.get_file_properties(db_id, multi_clients)
-    logging.debug("after calling get_file_properties")
-    
-    file_size = file_id.file_size
-
-    if range_header:
-        from_bytes, until_bytes = range_header.replace("bytes=", "").split("-")
-        from_bytes = int(from_bytes)
-        until_bytes = int(until_bytes) if until_bytes else file_size - 1
-    else:
-        from_bytes = request.http_range.start or 0
-        until_bytes = (request.http_range.stop or file_size) - 1
-
-    if (until_bytes > file_size) or (from_bytes < 0) or (until_bytes < from_bytes):
-        return web.Response(
-            status=416,
-            body="416: Range not satisfiable",
-            headers={"Content-Range": f"bytes */{file_size}"},
+        # Setup HTTP response
+        response = web.StreamResponse(
+            status=200,
+            reason='OK',
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Content-Disposition": f'attachment; filename="{message.document.file_name if message.document else "file.bin"}"',
+                "Accept-Ranges": "bytes"
+            },
         )
+        await response.prepare(request)
 
-    chunk_size = 1024 * 1024
-    until_bytes = min(until_bytes, file_size - 1)
+        # Stream content safely
+        generator = streamer.yield_file(client, message, offset, limit)
+        await safe_stream_response(response, generator)
 
-    offset = from_bytes - (from_bytes % chunk_size)
-    first_part_cut = from_bytes - offset
-    last_part_cut = until_bytes % chunk_size + 1
+        return response
 
-    req_length = until_bytes - from_bytes + 1
-    part_count = math.ceil(until_bytes / chunk_size) - math.floor(offset / chunk_size)
-    body = tg_connect.yield_file(
-        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
-    )
+    except Exception as e:
+        logger.error(f"❌ Stream handler error: {e}")
+        return web.Response(text=f"Internal server error: {e}", status=500)
 
-    mime_type = file_id.mime_type
-    file_name = utils.get_name(file_id)
-    disposition = "attachment"
 
-    if not mime_type:
-        mime_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+# ======================================================
+# Route registration function
+# ======================================================
 
-    # if "video/" in mime_type or "audio/" in mime_type:
-    #     disposition = "inline"
+def setup_routes(app: web.Application):
+    """
+    Registers all streaming routes into aiohttp app.
+    """
+    app.add_routes(routes)
+    logger.info("✅ Stream routes registered successfully.")
 
-    return web.Response(
-        status=206 if range_header else 200,
-        body=body,
-        headers={
-            "Content-Type": f"{mime_type}",
-            "Content-Range": f"bytes {from_bytes}-{until_bytes}/{file_size}",
-            "Content-Length": str(req_length),
-            "Content-Disposition": f'{disposition}; filename="{file_name}"',
-            "Accept-Ranges": "bytes",
-        },
-    )
+
+# ======================================================
+# Keep-Alive settings for stability (Koyeb / Heroku)
+# ======================================================
+
+def setup_keepalive(app: web.Application):
+    """
+    Adds keep-alive configuration to reduce dropped connections.
+    """
+    app._keepalive_timeout = 120  # 2 minutes
+    logger.info("🟢 Keep-alive timeout set to 120s.")
